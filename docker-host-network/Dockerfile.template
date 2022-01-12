@@ -1,0 +1,60 @@
+FROM balenalib/%%BALENA_MACHINE_NAME%%-node:12.18-stretch-run
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+RUN JOBS=MAX npm install --production --unsafe-perm && npm cache verify && rm -rf /tmp/*
+
+ENV DBUS_SYSTEM_BUS_ADDRESS="unix:path=/host/run/dbus/system_bus_socket"
+
+RUN set -x \
+  && apt-get update && apt-get install -y git bluetooth bluez libudev1 network-manager wireless-tools traceroute --no-install-recommends \
+  && rm -rf /var/lib/apt/lists/* \
+  && rm -rf /tmp/* \
+  && systemctl mask NetworkManager.service
+
+RUN echo "[main]"\
+  && echo "dns=default"\
+  && echo "plugins=keyfile"\
+  && echo "autoconnect-retries-default=0"\
+  && echo "hostname-mode=none"\
+  && echo "[keyfile]"\
+  && echo "unmanaged-devices=interface-name:balena*;interface-name:resin*;interface-name:br*;type:veth"\
+  && echo "[connection]"\
+  && echo "ipv4.dhcp-timeout=2147483647"\
+  && echo "[device]"\
+  && echo "wifi.scan-rand-mac-address=no" > /etc/NetworkManager/NetworkManager.conf
+
+# BEGIN Docker CLI install:
+#  A. Set up the repository
+#    a) Update the apt package index and install packates to allo apt to use a repo over HTTPS
+RUN apt-get update && apt-get install \
+  apt-transport-https \
+  ca-certificates \
+  curl \
+  gnupg-agent \
+  software-properties-common
+
+#    b) Add docker's gpg key:
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+
+#    c) Add the "stable" repo
+RUN add-apt-repository \
+  "deb [arch=amd64] https://download.docker.com/linux/debian \
+  $(dpkg --status tzdata|grep Provides|cut -f2 -d'-') \
+  stable"
+
+#  B. Install the CLI (do NOT install docker-ce or containerd.io):
+RUN install_packages docker-ce-cli
+RUN sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && sudo chmod +x /usr/local/bin/docker-compose
+
+# END Docker CLI install
+
+RUN mkdir /usr/src/app/customservice
+COPY ./docker-compose.yml /usr/src/app/customservice/docker-compose.yml
+COPY ./entry.sh /usr/bin/entry.sh
+
+COPY . ./
+
+ENTRYPOINT [ "entry.sh" ]
