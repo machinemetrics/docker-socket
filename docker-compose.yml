@@ -1,41 +1,14 @@
 version: '2.1'
 services:
-  one:
-    build: ./one
-    restart: always
-    ports:
-      - '3000:3000'
-  two:
-    build: ./two
-    restart: always
-    ports:
-      - '3001:3001'
-  docker-host-network:
-    build: ./docker-host-network
+  docker-1:
+    build: ./docker-1
     privileged: true
     restart: always
-    network_mode: 'host'
     labels:
-      io.resin.features.dbus: '1'
       io.balena.features.balena-socket: '1'
-      io.balena.features.supervisor-api: '1'
-  docker-local-network:
-    build: ./docker-local-network
+  docker-2:
+    build: ./docker-2
     privileged: true
-    networks:
-      - nats_backend
-      - default
-    security_opt:
-      - 'apparmor:unconfined'
-    tmpfs:
-      - /sys/fs/cgroup
     restart: always
     labels:
-      io.balena.features.sysfs: '1'
       io.balena.features.balena-socket: '1'
-volumes:
-  data:
-networks:
-  nats_backend:
-    ipam:
-      driver: default
