@@ -1,0 +1,10 @@
+version: "2.1"
+services:
+  redis:
+    image: "redis:alpine"
+    networks:
+      - main_services
+networks:
+  main_services:
+    external:
+      name: 1_default
